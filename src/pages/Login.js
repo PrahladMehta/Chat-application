@@ -130,7 +130,7 @@ const FormContainer=styled.div `
       border-radius:2rem;
       padding:2rem 5rem;
       border:1px solid white;
-      ${'' /* color:white; */}
+  
       input{
         padding:1rem;
         background-color:transparent;
@@ -159,21 +159,16 @@ const FormContainer=styled.div `
         &:hover{
           background-color:#4e0eff;
         }
-
       }
       span{
         color:white;
         text-transform:uppercase;
         a{
-        text-decoration:none;
-     
+        text-decoration:none; 
         color:#4e0eff;
       }
-      }
-
-     
+      }   
     }
-
 `;
 
 export default Login

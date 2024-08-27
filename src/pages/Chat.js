@@ -14,7 +14,8 @@ const Chat = () => {
   const[currentChat,setCurrentChat]=useState(undefined);
   const[isLoaded,setIsLoaded]=useState(false);
   const nav=useNavigate();
- async function fetchData(){
+  
+  async function fetchData(){
 
   const user= await JSON.parse(localStorage.getItem("chat-app-user"));
   setCurrentUser(user);
@@ -45,15 +46,11 @@ const Chat = () => {
   }
 
   useEffect(()=>{
-
     if(!localStorage.getItem("chat-app-user")){
         nav("/login");
     }else{
       fetchData();
-    }
-
-    
-  },[])
+    } },[])
 
   return (
 

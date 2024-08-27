@@ -6,10 +6,10 @@ import { registerRouter } from '../utils/Apiroutes';
 import axios from "axios";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-const Register = () => {
-  
- const nav=useNavigate();
 
+const Register = () => {
+
+ const nav=useNavigate();
   const [values,setValues]=new useState({
     username:"",
     email:"",
