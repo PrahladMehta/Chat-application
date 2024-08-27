@@ -1,4 +1,4 @@
-export const  host="https://chat-application-backend-1-creg.onrender.com";
+export const  host="https://chat-application-backend-a7fr.onrender.com";
 export const registerRouter=`${host}/api/auth/register`;
 export const loginRouter=`${host}/api/auth/login`
 export const setAvatarRoute=`${host}/api/auth/setavatar`
