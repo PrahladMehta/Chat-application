@@ -1,174 +1,176 @@
-import React,{useState,useEffect} from 'react'
-import styled from "styled-components";
-import {NavLink,useNavigate} from "react-router-dom"
+import React, { useState, useEffect } from "react";
+import { NavLink, useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
+import { useTheme } from "../context/ThemeContext";
 import logo from "../assets/logo.svg";
-import { loginRouter} from '../utils/Apiroutes';
+import { loginRouter } from "../utils/Apiroutes";
 import axios from "axios";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
-import { ToastContainer, toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
 const Login = () => {
- const nav=useNavigate();
+  const nav = useNavigate();
+  const { bgClass } = useTheme();
 
+  const [values, setValues] = useState({
+    username: "",
+    email: "",
+    password: "",
+  });
 
-  const [values,setValues]=new useState({
-    username:"",
-    email:"",
-    password:"",
-   
-  })
+  const toastOp = {
+    theme: "dark",
+  };
 
- const  toastOp={
-    theme:"dark"
-  }
- async function handleSubmit(event){
+  async function handleSubmit(event) {
     event.preventDefault();
-   
 
-    if( validation()){
+    if (validation()) {
+      const response = await axios.post(loginRouter, values);
+      const { data } = response;
 
-      const response=await axios.post(loginRouter,values);
-
-      const {data}=response;
-
-      if(data.status===false){
-        toast.error(data.message,toastOp);
+      if (data.status === false) {
+        toast.error(data.message, toastOp);
       }
-      if(data.status){
-        localStorage.setItem("chat-app-user",JSON.stringify(data.user));
+      if (data.status) {
+        localStorage.setItem("chat-app-user", JSON.stringify(data.user));
         nav("/");
       }
     }
   }
 
-  function validation(){
+  function validation() {
+    const { username, password } = values;
 
-    const {username,email,password}=values;
-
-    if(username.length<4){
-      toast.error("Use is invalid",toastOp);
-   
+    if (username.length < 4) {
+      toast.error("Username is invalid", toastOp);
       return false;
-    }else if(password.length<8){
-      
-        toast.error("passwrod not correct",toastOp);
-        return false;
-        }  
+    } else if (password.length < 8) {
+      toast.error("Password not correct", toastOp);
+      return false;
+    }
 
-        return true;
+    return true;
   }
 
-  function changeHandler(event){
-
-        setValues((prev)=>({...prev,[event.target.name]:event.target.value}))
-       
-
+  function changeHandler(event) {
+    setValues((prev) => ({
+      ...prev,
+      [event.target.name]: event.target.value,
+    }));
   }
 
-  useEffect(()=>{
-    if(localStorage.getItem("chat-app-user")){
+  useEffect(() => {
+    if (localStorage.getItem("chat-app-user")) {
       nav("/");
     }
-   },[])
+  }, []);
+
   return (
     <>
-      <FormContainer>
+      <div
+        className={`min-h-screen w-full flex items-center justify-center p-4 ${bgClass}`}
+      >
+        <motion.div
+          initial={{ opacity: 0, y: 30, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ type: "spring", stiffness: 120, damping: 14 }}
+          className="glass p-8 md:p-12 w-full max-w-md"
+          style={{ borderRadius: "var(--radius-primary)" }}
+        >
+          <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+            {/* Brand */}
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15, duration: 0.5 }}
+              className="flex items-center justify-center gap-3 mb-2"
+            >
+              <img src={logo} alt="logo" className="h-12" />
+              <h1
+                className="text-3xl md:text-4xl font-bold gradient-text"
+                style={{ fontFamily: "var(--font-primary)" }}
+              >
+                Snappy
+              </h1>
+            </motion.div>
 
-      <form onSubmit={handleSubmit}>
+            {/* Username Input */}
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{
+                delay: 0.25,
+                type: "spring",
+                stiffness: 150,
+                damping: 12,
+              }}
+            >
+              <input
+                type="text"
+                placeholder="Username"
+                name="username"
+                required
+                onChange={changeHandler}
+                className="input-chill"
+              />
+            </motion.div>
 
-      <div className="brand">
-      <img src={logo} alt="logo" />
-      <h1>Snappy</h1>
+            {/* Password Input */}
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{
+                delay: 0.35,
+                type: "spring",
+                stiffness: 150,
+                damping: 12,
+              }}
+            >
+              <input
+                type="password"
+                placeholder="Password"
+                name="password"
+                required
+                onChange={changeHandler}
+                className="input-chill"
+              />
+            </motion.div>
+
+            {/* Submit Button */}
+            <motion.button
+              whileHover={{ scale: 1.04 }}
+              whileTap={{ scale: 0.96 }}
+              transition={{ type: "spring", stiffness: 400, damping: 10 }}
+              type="submit"
+              className="btn-chill w-full mt-2"
+            >
+              Login
+            </motion.button>
+
+            {/* Register Link */}
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5 }}
+              className="text-center text-sm uppercase tracking-wide"
+              style={{ color: "var(--color-text-secondary)" }}
+            >
+              Create account?{" "}
+              <NavLink
+                to="/register"
+                className="hover:opacity-80 transition-all duration-300 no-underline font-medium"
+                style={{ color: "var(--color-primary)" }}
+              >
+                Sign Up
+              </NavLink>
+            </motion.p>
+          </form>
+        </motion.div>
       </div>
-
-      <input type="text" placeholder='Username' name="username" required onChange={changeHandler} />
-      {/* <input type="email" placeholder='Email' name='email' required onChange={changeHandler}/> */}
-      <input type="password" placeholder='Password' name='password' required onChange={changeHandler}/>
-   
-
-      <button type='submit'>Login </button>
-      <span>Create account ?  <NavLink to="/register"> signup</NavLink></span>
-    
-      </form>
-
-      </FormContainer>
-      <ToastContainer></ToastContainer>
+      <ToastContainer />
     </>
-  )
-}
+  );
+};
 
-const FormContainer=styled.div `
-
-    height:100vh;
-    width:100vw;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    gap:1rem;
-    background-color:#131324;
-    .brand{
-      display:flex;
-      align-items:center;
-      gap:1rem;
-      justify-content:ceter;
-    
-    img{
-      height:5rem;
-    }
-
-    h1{
-      color:white;
-      text-transform:uppercase;
-    }
-    }
-
-    form{
-      display:flex;
-      flex-direction:column;
-      gap:2rem;
-      background-color:#00000076;
-      border-radius:2rem;
-      padding:2rem 5rem;
-      border:1px solid white;
-  
-      input{
-        padding:1rem;
-        background-color:transparent;
-        border:0.1rem solid #4e0eff;
-        border-radius:0.4rem;
-        color:white;
-        width:100%;
-        font-size:1rem;
-        &:focus{
-
-          border:.1rem solid #997af0;
-          outline:none;
-        }
-      }
-      button{
-   
-        background-color:#997af0;
-        color:white;
-        padding:1rem 2rem;
-        border:none;
-        cursor:pointer;
-        border-radius:0.4rem;
-        font-size:1rem;
-        text-transform:uppercase;
-        transition:.5s ease-in;
-        &:hover{
-          background-color:#4e0eff;
-        }
-      }
-      span{
-        color:white;
-        text-transform:uppercase;
-        a{
-        text-decoration:none; 
-        color:#4e0eff;
-      }
-      }   
-    }
-`;
-
-export default Login
+export default Login;

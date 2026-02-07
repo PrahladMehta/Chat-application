@@ -1,167 +1,238 @@
-import React,{useState}from 'react'
+import React, { useState, useRef, useEffect } from "react";
 import Picker from "emoji-picker-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { IoMdSend } from "react-icons/io";
+import { BsEmojiSmileFill } from "react-icons/bs";
+import { MdAttachFile } from "react-icons/md";
+import { useTheme } from "../context/ThemeContext";
 
-import styled from 'styled-components';
-import {IoMdSend} from "react-icons/io";
-import {BsEmojiSmileFill} from "react-icons/bs";
-const ChatInput = ({handleSendMes}) => {
+const ChatInput = ({ handleSendMes }) => {
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [mes, setMes] = useState("");
+  const emojiRef = useRef(null);
+  const inputRef = useRef(null);
+  const { theme } = useTheme();
 
-  const [showEmojiPicker,setShowEmojiPicker]=useState(false);
-  const[mes,setMes]=useState("");
+  const isDarkTheme = theme === "developer" || theme === "study";
 
-  const handleEmojiPickerHideShow=()=>{
-
+  const handleEmojiPickerHideShow = () => {
     setShowEmojiPicker(!showEmojiPicker);
+  };
 
-  }
+  const handleEmojiClick = (event) => {
+    setMes((prev) => prev + event.emoji);
+    inputRef.current?.focus();
+  };
 
-  const handleEmojiClick=(event,emoji)=>{
+  // Close emoji picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (emojiRef.current && !emojiRef.current.contains(e.target)) {
+        setShowEmojiPicker(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
-    setMes((prev)=>prev+=event.emoji);
-  
-  }
-
-  const sentChat=(e)=>{
+  const sentChat = (e) => {
     e.preventDefault();
-    if(mes.length>0){
+    if (mes.length > 0) {
       handleSendMes(mes);
-      setMes('');
+      setMes("");
     }
-  }
+  };
+
+  const hasText = mes.trim().length > 0;
+
   return (
-  <Container>
-    <div className="button-container">
-      <div className="emoji" >
-        <BsEmojiSmileFill onClick={handleEmojiPickerHideShow
-      }/>
+    <div className="relative px-3 py-3 md:px-5 md:py-4">
+      {/* ─── Emoji Picker Popover ─── */}
+      <AnimatePresence>
+        {showEmojiPicker && (
+          <motion.div
+            ref={emojiRef}
+            initial={{ opacity: 0, y: 20, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.9 }}
+            transition={{ type: "spring", stiffness: 300, damping: 22 }}
+            className="
+              absolute bottom-full left-3 md:left-5 mb-3 z-50
+              overflow-hidden
+            "
+            style={{
+              borderRadius: "var(--radius-primary)",
+              border: "1px solid var(--color-border)",
+              boxShadow: "0 8px 32px var(--color-shadow)",
+            }}
+          >
+            <Picker
+              onEmojiClick={handleEmojiClick}
+              theme={isDarkTheme ? "dark" : "light"}
+              searchDisabled={false}
+              skinTonesDisabled
+              height={350}
+              width={320}
+              previewConfig={{ showPreview: false }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {
-          showEmojiPicker&& <Picker  onEmojiClick={handleEmojiClick} className='emoji-picker-react'
-      />
-        }
+      {/* ─── Input Bar ─── */}
+      <form onSubmit={sentChat}>
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: "spring", stiffness: 200, damping: 18 }}
+          className="
+          flex items-center gap-2 md:gap-3
+          px-3 py-2 md:px-4 md:py-2.5
+          transition-all duration-300
+        "
+          style={{
+            backgroundColor: "var(--color-glass)",
+            backdropFilter: "blur(var(--blur-strength))",
+            WebkitBackdropFilter: "blur(var(--blur-strength))",
+            border: "1px solid var(--color-border)",
+            borderRadius:
+              theme === "developer" || theme === "serious" ? "4px" : "9999px",
+            boxShadow: "0 4px 15px var(--color-shadow)",
+          }}
+        >
+          {/* ─── Emoji Button ─── */}
+          <motion.button
+            whileHover={{ scale: 1.15, rotate: 10 }}
+            whileTap={{ scale: 0.85 }}
+            transition={{ type: "spring", stiffness: 400, damping: 10 }}
+            type="button"
+            onClick={handleEmojiPickerHideShow}
+            className="p-2 rounded-full transition-all duration-300 cursor-pointer border-none bg-transparent flex items-center justify-center"
+            style={{
+              backgroundColor: showEmojiPicker
+                ? "rgba(234, 179, 8, 0.15)"
+                : "transparent",
+              boxShadow: showEmojiPicker
+                ? "0 0 12px rgba(234, 179, 8, 0.3)"
+                : "none",
+            }}
+            title="Emoji"
+          >
+            <BsEmojiSmileFill
+              className="text-xl transition-colors duration-300"
+              style={{
+                color: showEmojiPicker
+                  ? "#facc15"
+                  : theme === "developer"
+                    ? "#00ff41"
+                    : "#facc15",
+                opacity: showEmojiPicker ? 1 : 0.7,
+              }}
+            />
+          </motion.button>
 
-    
-      </div>
+          {/* ─── Attach Button ─── */}
+          <motion.button
+            whileHover={{ scale: 1.15, rotate: -15 }}
+            whileTap={{ scale: 0.85 }}
+            transition={{ type: "spring", stiffness: 400, damping: 10 }}
+            type="button"
+            className="
+              p-2 rounded-full transition-all duration-300
+              cursor-pointer border-none bg-transparent
+              flex items-center justify-center
+              hidden sm:flex
+            "
+            title="Attach file"
+          >
+            <MdAttachFile
+              className="text-xl transition-colors duration-300"
+              style={{ color: "var(--color-primary)", opacity: 0.7 }}
+            />
+          </motion.button>
+
+          {/* ─── Text Input ─── */}
+          <input
+            ref={inputRef}
+            type="text"
+            placeholder="Type your message..."
+            value={mes}
+            onChange={(e) => setMes(e.target.value)}
+            className="flex-1 min-w-0 bg-transparent outline-none text-sm md:text-base py-1"
+            style={{
+              color: "var(--color-text)",
+              fontFamily:
+                theme === "developer"
+                  ? "'JetBrains Mono', monospace"
+                  : "inherit",
+            }}
+          />
+
+          {/* ─── Send Button ─── */}
+          <motion.button
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.85, rotate: -15 }}
+            transition={{ type: "spring", stiffness: 400, damping: 10 }}
+            type="submit"
+            disabled={!hasText}
+            className="p-2.5 flex items-center justify-center transition-all duration-300 cursor-pointer border-none"
+            style={{
+              borderRadius:
+                theme === "developer" || theme === "serious" ? "4px" : "9999px",
+              background: hasText
+                ? `linear-gradient(135deg, var(--color-primary), var(--color-accent))`
+                : "var(--color-glass)",
+              boxShadow: hasText ? "0 0 20px var(--color-glow)" : "none",
+              opacity: hasText ? 1 : 0.5,
+              cursor: hasText ? "pointer" : "not-allowed",
+            }}
+            title="Send message"
+          >
+            <IoMdSend
+              className="text-lg md:text-xl transition-transform duration-300"
+              style={{
+                color: hasText
+                  ? "var(--color-bg)"
+                  : "var(--color-text-secondary)",
+                transform: hasText ? "translateX(1px)" : "none",
+              }}
+            />
+          </motion.button>
+        </motion.div>
+      </form>
+
+      {/* ─── Typing Hint ─── */}
+      <AnimatePresence>
+        {hasText && (
+          <motion.div
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 5 }}
+            transition={{ duration: 0.2 }}
+            className="flex items-center justify-end mt-1.5 mr-4"
+          >
+            <span
+              className="text-[10px] tracking-wide"
+              style={{ color: "var(--color-text-secondary)", opacity: 0.4 }}
+            >
+              Press{" "}
+              <kbd
+                className="px-1.5 py-0.5 rounded font-mono text-[10px] mx-0.5"
+                style={{
+                  backgroundColor: "var(--color-glass)",
+                  color: "var(--color-text-secondary)",
+                  border: "1px solid var(--color-border)",
+                }}
+              >
+                Enter
+              </kbd>{" "}
+              to send
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
+  );
+};
 
-    <form className='input-container' onSubmit={sentChat}>
-      <input type="text" placeholder='Message..' value={mes} onChange={(e)=>setMes(e.target.value)} />
-      <button className='submit'>
-      <IoMdSend/>
-
-      </button>
-    </form>
-  </Container>
-  )
-}
-
-export default ChatInput
-
-const Container=styled.div`
-display:grid;
-grid-template-columns:5% 95%;
-aling-items:center;
-background-color:#080420;
-padding:0 2rem;
-padding-bottom:0.3rem;
-
-@media screen and(min-width:720px) and(max-width:1080px){
-  padding:0 1rem;
-  gap:1rem
-}
-
-.button-container{
-  display:flex;
-  align-items:center;
-  color:white;
-  gap:1rem;
-
-  .emoji{
-    position:relative;
-
-    svg{
-      font-size:1.5rem;
-      color:#ffff00c8;
-      cursor:pointer;
-    }
-    .emoji-picker-react{
-      position:absolute;
-      top:-350px;
-      background-color:#080420;
-      box-shadow:0px 5px 10px #9a86f3;
-      border-color:#9186f3;
-      max-height:320px;
-    
-
-    }
-
-    .emoji-categories{
-      button{
-        filter:contrast(0);
-      }
-    }
-
-    .emoji-search{
-      background-color:transparent;
-      border-color:#9186f3;
-    }
-
-    .emoji-group:before{
-      background-color:#080420;
-
-    }
-
-  }
-}
-
-.input-container{
-  width:100%;
- border-radius:2rem;
- 
-  display:flex;
-  align-items:center;
-  gap:2rem;
-  background-color:#ffffff34;
-  input{
-    width:100%;
-    
-    background-color:transparent;
-    color:white;
-    border:none;
-    padding-left:1rem;
-    font-size:1.2rem;
-
-    &::selection{
-      background-color:#9186f3;
-    }
-
-    &:focus{
-      outline:none;
-    }
-
-  }
-
-  button{
-    padding:0.3rem 2rem;
-    border-radius:2rem;
-    display:flex;
-    justify-content:center;
-    aling-items:center;
-    background-color:#9186f3;
-    border:none;
-
-    @media screen and(min-width:720px) and(max-width:1080px){
-      padding:.3rem 1rem;
-      svg{
-        font-size:1rem;
-      }
-    }
-
-    svg{
-      font-size:2rem;
-      color:white;
-    }
-  }
-}
-
-`
+export default ChatInput;
