@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useTheme } from "../context/ThemeContext";
-import logo from "../assets/logo.svg";
+import PingLogo from "../components/PingLogo";
 import { registerRouter } from "../utils/Apiroutes";
 import axios from "axios";
 import { ToastContainer, toast } from "react-toastify";
@@ -106,12 +106,12 @@ const Register = () => {
               transition={{ delay: 0.15, duration: 0.5 }}
               className="flex items-center justify-center gap-3 mb-2"
             >
-              <img src={logo} alt="logo" className="h-12" />
+              <PingLogo />
               <h1
                 className="text-3xl md:text-4xl font-bold gradient-text"
                 style={{ fontFamily: "var(--font-primary)" }}
               >
-                Snappy
+                Ping
               </h1>
             </motion.div>
 
