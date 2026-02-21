@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useTheme } from "../context/ThemeContext";
 import PingLogo from "../components/PingLogo";
-import { loginRouter } from "../utils/Apiroutes";
-import axios from "axios";
+import { useAuthStore } from "../store/authStore";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -12,9 +11,12 @@ const Login = () => {
   const nav = useNavigate();
   const { bgClass } = useTheme();
 
+  const login = useAuthStore((s) => s.login);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const [values, setValues] = useState({
     username: "",
-    email: "",
     password: "",
   });
 
@@ -22,31 +24,54 @@ const Login = () => {
     theme: "dark",
   };
 
+  // If already authenticated, redirect to home
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      nav("/");
+    }
+  }, [isAuthenticated, nav]);
+
   async function handleSubmit(event) {
     event.preventDefault();
 
-    if (validation()) {
-      const response = await axios.post(loginRouter, values);
-      const { data } = response;
+    if (!validation()) return;
 
-      if (data.status === false) {
-        toast.error(data.message, toastOp);
-      }
-      if (data.status) {
-        localStorage.setItem("chat-app-user", JSON.stringify(data.user));
+    setIsSubmitting(true);
+
+    try {
+      const user = await login({
+        username: values.username,
+        password: values.password,
+      });
+
+      // If the user hasn't set their avatar yet, redirect to avatar page
+      if (user && !user.isAvatarImageSet) {
+        nav("/setavatar");
+      } else {
         nav("/");
       }
+    } catch (err) {
+      // Extract error message from the API response
+      const message =
+        err?.response?.data?.error?.message ||
+        err?.response?.data?.message ||
+        err?.message ||
+        "Login failed. Please try again.";
+
+      toast.error(message, toastOp);
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
   function validation() {
     const { username, password } = values;
 
-    if (username.length < 4) {
-      toast.error("Username is invalid", toastOp);
+    if (username.trim().length < 3) {
+      toast.error("Username must be at least 3 characters", toastOp);
       return false;
     } else if (password.length < 8) {
-      toast.error("Password not correct", toastOp);
+      toast.error("Password must be at least 8 characters", toastOp);
       return false;
     }
 
@@ -59,12 +84,6 @@ const Login = () => {
       [event.target.name]: event.target.value,
     }));
   }
-
-  useEffect(() => {
-    if (localStorage.getItem("chat-app-user")) {
-      nav("/");
-    }
-  }, []);
 
   return (
     <>
@@ -143,9 +162,14 @@ const Login = () => {
               whileTap={{ scale: 0.96 }}
               transition={{ type: "spring", stiffness: 400, damping: 10 }}
               type="submit"
+              disabled={isSubmitting}
               className="btn-chill w-full mt-2"
+              style={{
+                opacity: isSubmitting ? 0.7 : 1,
+                cursor: isSubmitting ? "not-allowed" : "pointer",
+              }}
             >
-              Login
+              {isSubmitting ? "Logging in..." : "Login"}
             </motion.button>
 
             {/* Register Link */}

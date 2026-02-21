@@ -1,16 +1,20 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import Picker from "emoji-picker-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { IoMdSend } from "react-icons/io";
 import { BsEmojiSmileFill } from "react-icons/bs";
 import { MdAttachFile } from "react-icons/md";
 import { useTheme } from "../context/ThemeContext";
+import { socketService } from "../services/socketService";
+import { SOCKET_EVENTS, TYPING_CONFIG } from "../constants/socketEvents";
 
-const ChatInput = ({ handleSendMes }) => {
+const ChatInput = ({ handleSendMes, currChat }) => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [mes, setMes] = useState("");
   const emojiRef = useRef(null);
   const inputRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
+  const typingDebounceRef = useRef(null);
   const { theme } = useTheme();
 
   const isDarkTheme = theme === "developer" || theme === "study";
@@ -35,11 +39,73 @@ const ChatInput = ({ handleSendMes }) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // ─── Emit typing indicators ─────────────────────────────────────
+  const handleTyping = () => {
+    if (!currChat) return;
+
+    // Emit typing start (debounced - only once after user starts typing)
+    if (!typingDebounceRef.current) {
+      typingDebounceRef.current = setTimeout(() => {
+        socketService.emit(SOCKET_EVENTS.TYPING_START, { to: currChat._id });
+        typingDebounceRef.current = null;
+      }, TYPING_CONFIG.DEBOUNCE_MS);
+    }
+
+    // Reset the auto-stop timer on each keystroke
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    typingTimeoutRef.current = setTimeout(() => {
+      socketService.emit(SOCKET_EVENTS.TYPING_STOP, { to: currChat._id });
+      typingTimeoutRef.current = null;
+    }, TYPING_CONFIG.AUTO_CLEAR_MS);
+  };
+
+  const stopTyping = useCallback(() => {
+    if (!currChat) return;
+    
+    // Clear all timers
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = null;
+    }
+    if (typingDebounceRef.current) {
+      clearTimeout(typingDebounceRef.current);
+      typingDebounceRef.current = null;
+    }
+    
+    // Immediately stop typing indicator
+    socketService.emit(SOCKET_EVENTS.TYPING_STOP, { to: currChat._id });
+  }, [currChat]);
+
+  // Cleanup on unmount or when currChat changes
+  useEffect(() => {
+    return () => {
+      stopTyping();
+    };
+  }, [stopTyping]);
+
   const sentChat = (e) => {
     e.preventDefault();
     if (mes.length > 0) {
+      // Stop typing indicator when sending
+      stopTyping();
+      
       handleSendMes(mes);
       setMes("");
+    }
+  };
+
+  // Handle input change with typing indicators
+  const handleInputChange = (e) => {
+    const value = e.target.value;
+    setMes(value);
+
+    if (value.trim().length > 0) {
+      handleTyping();
+    } else {
+      // Stop typing if input is empty
+      stopTyping();
     }
   };
 
@@ -157,7 +223,7 @@ const ChatInput = ({ handleSendMes }) => {
             type="text"
             placeholder="Type your message..."
             value={mes}
-            onChange={(e) => setMes(e.target.value)}
+            onChange={handleInputChange}
             className="flex-1 min-w-0 bg-transparent outline-none text-sm md:text-base py-1"
             style={{
               color: "var(--color-text)",

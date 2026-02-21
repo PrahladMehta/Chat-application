@@ -5,14 +5,16 @@ import { useTheme } from "../context/ThemeContext";
 import loader from "../assets/loader.gif";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import axios from "axios";
-import { setAvatarRoute } from "../utils/Apiroutes";
+import { userApi } from "../api/userApi";
+import { useAuthStore } from "../store/authStore";
 import { Buffer } from "buffer";
 import multiavatar from "@multiavatar/multiavatar/esm";
 
 const SetAvatar = () => {
   const nav = useNavigate();
   const { bgClass } = useTheme();
+  const user = useAuthStore((s) => s.user);
+  const updateUser = useAuthStore((s) => s.updateUser);
 
   const [avatars, setAvatars] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -27,19 +29,24 @@ const SetAvatar = () => {
     if (selectedAvatar === undefined) {
       toast.error("Please select an avatar", toastOptions);
     } else {
-      const user = await JSON.parse(localStorage.getItem("chat-app-user"));
+      try {
+        const data = await userApi.setAvatar(user._id, avatars[selectedAvatar]);
 
-      const { data } = await axios.post(`${setAvatarRoute}/${user._id}`, {
-        image: avatars[selectedAvatar],
-      });
-
-      if (data.isSet) {
-        user.isAvatarImageSet = true;
-        user.avatarImage = data.image;
-        localStorage.setItem("chat-app-user", JSON.stringify(user));
-        nav("/");
-      } else {
-        toast.error("Error setting avatar. Please try again", toastOptions);
+        if (data.isSet) {
+          // Update the user in the Zustand auth store
+          updateUser({
+            isAvatarImageSet: true,
+            avatarImage: data.image,
+          });
+          nav("/");
+        } else {
+          toast.error("Error setting avatar. Please try again", toastOptions);
+        }
+      } catch (err) {
+        const message =
+          err?.response?.data?.error?.message ||
+          "Error setting avatar. Please try again";
+        toast.error(message, toastOptions);
       }
     }
   };
@@ -71,7 +78,7 @@ const SetAvatar = () => {
   }
 
   useEffect(() => {
-    if (!localStorage.getItem("chat-app-user")) {
+    if (!user) {
       nav("/login");
     } else {
       fetchData();

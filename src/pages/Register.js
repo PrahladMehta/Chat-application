@@ -1,16 +1,17 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useTheme } from "../context/ThemeContext";
 import PingLogo from "../components/PingLogo";
-import { registerRouter } from "../utils/Apiroutes";
-import axios from "axios";
+import { useAuthStore } from "../store/authStore";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 const Register = () => {
   const nav = useNavigate();
   const { bgClass } = useTheme();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const register = useAuthStore((s) => s.register);
 
   const [values, setValues] = useState({
     username: "",
@@ -19,26 +20,60 @@ const Register = () => {
     confirmPassword: "",
   });
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const toastOp = {
     theme: "dark",
     draggable: true,
   };
 
+  // Redirect if already authenticated
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      nav("/");
+    }
+  }, [isAuthenticated, nav]);
+
   async function handleSubmit(event) {
     event.preventDefault();
 
-    if (validation()) {
-      const response = await axios.post(registerRouter, values);
-      const { data } = response;
+    if (!validation()) return;
+    if (isSubmitting) return;
 
-      if (data.status === false) {
-        toast.error(data.message, toastOp);
-      }
+    setIsSubmitting(true);
 
-      if (data.status) {
-        localStorage.setItem("chat-app-user", JSON.stringify(data.user));
+    try {
+      const user = await register({
+        username: values.username,
+        email: values.email,
+        password: values.password,
+      });
+
+      // If user hasn't set avatar yet, redirect to avatar page
+      if (!user.isAvatarImageSet) {
+        nav("/setavatar");
+      } else {
         nav("/");
       }
+    } catch (err) {
+      // Extract error message from the standardized API response
+      const message =
+        err.response?.data?.error?.message ||
+        err.response?.data?.message ||
+        err.message ||
+        "Registration failed. Please try again.";
+
+      // If there are field-level validation details, show the first one
+      const details = err.response?.data?.error?.details;
+      if (details && details.length > 0) {
+        details.forEach((detail) => {
+          toast.error(detail.message, toastOp);
+        });
+      } else {
+        toast.error(message, toastOp);
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -48,14 +83,41 @@ const Register = () => {
     if (password !== confirmPassword) {
       toast.error("Confirm password and password do not match", toastOp);
       return false;
-    } else if (username.length < 4) {
-      toast.error("Username length must be at least 4 characters", toastOp);
+    } else if (username.length < 3) {
+      toast.error("Username must be at least 3 characters", toastOp);
+      return false;
+    } else if (username.length > 20) {
+      toast.error("Username must be at most 20 characters", toastOp);
       return false;
     } else if (password.length < 8) {
-      toast.error("Password length must be at least 8 characters", toastOp);
+      toast.error("Password must be at least 8 characters", toastOp);
       return false;
-    } else if (email !== "" && email.length < 9) {
-      toast.error("Email is invalid", toastOp);
+    } else if (!/[A-Z]/.test(password)) {
+      toast.error(
+        "Password must contain at least one uppercase letter",
+        toastOp,
+      );
+      return false;
+    } else if (!/[a-z]/.test(password)) {
+      toast.error(
+        "Password must contain at least one lowercase letter",
+        toastOp,
+      );
+      return false;
+    } else if (!/\d/.test(password)) {
+      toast.error("Password must contain at least one number", toastOp);
+      return false;
+    } else if (!/[@$!%*?&#+\-_.]/.test(password)) {
+      toast.error(
+        "Password must contain at least one special character",
+        toastOp,
+      );
+      return false;
+    } else if (!email || email.trim() === "") {
+      toast.error("Email is required", toastOp);
+      return false;
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error("Please provide a valid email address", toastOp);
       return false;
     }
 
@@ -68,12 +130,6 @@ const Register = () => {
       [event.target.name]: event.target.value,
     }));
   }
-
-  useEffect(() => {
-    if (localStorage.getItem("chat-app-user")) {
-      nav("/");
-    }
-  }, []);
 
   const inputFields = [
     { type: "text", placeholder: "Username", name: "username" },
@@ -149,14 +205,15 @@ const Register = () => {
               >
                 <div className="flex gap-1.5">
                   {[1, 2, 3, 4].map((level) => {
-                    const strength =
-                      values.password.length >= 12
-                        ? 4
-                        : values.password.length >= 10
-                          ? 3
-                          : values.password.length >= 8
-                            ? 2
-                            : 1;
+                    let strength = 0;
+                    if (values.password.length >= 8) strength++;
+                    if (
+                      /[A-Z]/.test(values.password) &&
+                      /[a-z]/.test(values.password)
+                    )
+                      strength++;
+                    if (/\d/.test(values.password)) strength++;
+                    if (/[@$!%*?&#+\-_.]/.test(values.password)) strength++;
                     return (
                       <motion.div
                         key={level}
@@ -179,13 +236,21 @@ const Register = () => {
                   })}
                 </div>
                 <span className="text-xs text-white/40">
-                  {values.password.length < 8
-                    ? "Too short"
-                    : values.password.length < 10
-                      ? "Fair"
-                      : values.password.length < 12
-                        ? "Good"
-                        : "Strong"}
+                  {(() => {
+                    let s = 0;
+                    if (values.password.length >= 8) s++;
+                    if (
+                      /[A-Z]/.test(values.password) &&
+                      /[a-z]/.test(values.password)
+                    )
+                      s++;
+                    if (/\d/.test(values.password)) s++;
+                    if (/[@$!%*?&#+\-_.]/.test(values.password)) s++;
+                    if (s <= 1) return "Too weak";
+                    if (s === 2) return "Fair";
+                    if (s === 3) return "Good";
+                    return "Strong";
+                  })()}
                 </span>
               </motion.div>
             )}
@@ -196,9 +261,14 @@ const Register = () => {
               whileTap={{ scale: 0.96 }}
               transition={{ type: "spring", stiffness: 400, damping: 10 }}
               type="submit"
+              disabled={isSubmitting}
               className="btn-chill w-full mt-2"
+              style={{
+                opacity: isSubmitting ? 0.7 : 1,
+                cursor: isSubmitting ? "not-allowed" : "pointer",
+              }}
             >
-              Create User
+              {isSubmitting ? "Creating Account..." : "Create User"}
             </motion.button>
 
             {/* Login Link */}

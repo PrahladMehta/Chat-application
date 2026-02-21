@@ -3,15 +3,28 @@ import { motion, AnimatePresence } from "framer-motion";
 import { BiPowerOff } from "react-icons/bi";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
+import { useAuthStore } from "../store/authStore";
+import { useChatStore } from "../store/chatStore";
 
 const Logout = () => {
   const nav = useNavigate();
   const [showConfirm, setShowConfirm] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const { theme } = useTheme();
+  const logout = useAuthStore((s) => s.logout);
+  const resetChat = useChatStore((s) => s.reset);
 
-  function handleLogout() {
-    localStorage.clear();
-    nav("/login");
+  async function handleLogout() {
+    setIsLoggingOut(true);
+    try {
+      resetChat();
+      await logout();
+    } catch (err) {
+      console.warn("Logout error:", err.message);
+    } finally {
+      setIsLoggingOut(false);
+      nav("/login");
+    }
   }
 
   return (

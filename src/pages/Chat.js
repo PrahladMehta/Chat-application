@@ -1,61 +1,60 @@
-import React, { useState, useEffect, useRef } from "react";
-import axios from "axios";
-import { allUserRoute, host } from "../utils/Apiroutes";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import Contact from "../components/Contact";
 import Welcome from "../components/Welcome";
 import ChatContainer from "../components/ChatContainer";
 import ThemeSwitcher from "../components/ThemeSwitcher";
-import { io } from "socket.io-client";
 import { BiMessageSquareDots, BiGroup, BiCog } from "react-icons/bi";
 import { BsChatDots, BsPeople, BsController, BsBell } from "react-icons/bs";
 import { cn } from "../utils/cn";
 import { useTheme } from "../context/ThemeContext";
+import { useAuthStore } from "../store/authStore";
+import { useChatStore } from "../store/chatStore";
+import { socketService } from "../services/socketService";
+import { userApi } from "../api/userApi";
 
 const Chat = () => {
-  const socket = useRef();
-  const [contacts, setContacts] = useState([]);
-  const [currentUser, setCurrentUser] = useState();
+  const currentUser = useAuthStore((s) => s.user);
+  const contacts = useChatStore((s) => s.contacts);
+  const setContacts = useChatStore((s) => s.setContacts);
+  const contactsLoaded = useChatStore((s) => s.contactsLoaded);
   const [currentChat, setCurrentChat] = useState(undefined);
   const [isLoaded, setIsLoaded] = useState(false);
   const [showContacts, setShowContacts] = useState(false);
   const nav = useNavigate();
   const { bgClass } = useTheme();
 
-  async function fetchData() {
-    const user = await JSON.parse(localStorage.getItem("chat-app-user"));
-    setCurrentUser(user);
-
-    if (!user.isAvatarImageSet) {
-      nav("/setAvatar");
-    } else {
-      await axios.get(`${allUserRoute}/${user._id}`).then((data) => {
-        setContacts(data.data);
-        setIsLoaded(true);
-      });
-    }
-  }
-
+  // Fetch contacts on mount
   useEffect(() => {
-    if (currentUser) {
-      socket.current = io(host);
-      socket.current.emit("add-user", currentUser._id);
+    async function fetchData() {
+      if (!currentUser) return;
+
+      if (!currentUser.isAvatarImageSet) {
+        nav("/setavatar");
+        return;
+      }
+
+      try {
+        const users = await userApi.getAllUsers();
+        setContacts(users);
+        setIsLoaded(true);
+      } catch (err) {
+        console.error("Failed to fetch contacts:", err);
+        setIsLoaded(true);
+      }
     }
-  }, [currentUser]);
+
+    fetchData();
+  }, [currentUser, nav, setContacts]);
+
+  // Socket is already connected by authStore — no need to create a new one here.
+  // The socketService singleton handles the connection lifecycle.
 
   function handleChatChange(chat) {
     setCurrentChat(chat);
     setShowContacts(false);
   }
-
-  useEffect(() => {
-    if (!localStorage.getItem("chat-app-user")) {
-      nav("/login");
-    } else {
-      fetchData();
-    }
-  }, []);
 
   const sidebarNavItems = [
     { icon: BsChatDots, label: "Chats", active: true },
@@ -168,7 +167,7 @@ const Chat = () => {
                 className="text-lg font-bold gradient-text"
                 style={{ fontFamily: "var(--font-primary)" }}
               >
-                Snappy
+                Ping
               </h2>
             </div>
 
@@ -253,7 +252,6 @@ const Chat = () => {
                     <ChatContainer
                       currChat={currentChat}
                       currUser={currentUser}
-                      socket={socket}
                     />
                   </motion.div>
                 )}
