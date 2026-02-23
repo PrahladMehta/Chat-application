@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "../context/ThemeContext";
 import {
   BsDropletFill,
@@ -8,216 +8,221 @@ import {
   BsMoonStarsFill,
 } from "react-icons/bs";
 
-const THEME_ICONS = {
-  chill: BsMoonStarsFill,
-  girls: BsDropletFill,
-  developer: BsCodeSlash,
-  serious: BsBriefcaseFill,
-  study: BsBookFill,
-};
-
-const THEME_PREVIEWS = {
+const THEMES = {
   chill: {
-    bg: "linear-gradient(135deg, #0a0a1f, #3d22eb)",
-    dot1: "#9333ea",
-    dot2: "#a855f7",
-    dot3: "#06b6d4",
+    icon: BsMoonStarsFill,
+    label: "Chill",
+    emoji: "🌙",
+    grad: "linear-gradient(135deg, #1a0533 0%, #3d22eb 100%)",
+    accent: "#9333ea",
+    text: "#e2d9f3",
   },
   girls: {
-    bg: "linear-gradient(135deg, #ffafcc, #bde0fe)",
-    dot1: "#ffafcc",
-    dot2: "#ffc8dd",
-    dot3: "#bde0fe",
+    icon: BsDropletFill,
+    label: "Girls",
+    emoji: "🌸",
+    grad: "linear-gradient(135deg, #ffafcc 0%, #bde0fe 100%)",
+    accent: "#ff85a1",
+    text: "#5a2d4c",
   },
   developer: {
-    bg: "linear-gradient(135deg, #0d0208, #003b00)",
-    dot1: "#00ff41",
-    dot2: "#008f11",
-    dot3: "#003b00",
+    icon: BsCodeSlash,
+    label: "Dev",
+    emoji: "💻",
+    grad: "linear-gradient(135deg, #001a00 0%, #00ff41 100%)",
+    accent: "#00ff41",
+    text: "#00ff41",
   },
   serious: {
-    bg: "linear-gradient(135deg, #f4f4f4, #e8e8e8)",
-    dot1: "#003366",
-    dot2: "#b22234",
-    dot3: "#ffffff",
+    icon: BsBriefcaseFill,
+    label: "Serious",
+    emoji: "💼",
+    grad: "linear-gradient(135deg, #003366 0%, #b22234 100%)",
+    accent: "#4a90d9",
+    text: "#ffffff",
   },
   study: {
-    bg: "linear-gradient(135deg, #355070, #6d597a)",
-    dot1: "#6d597a",
-    dot2: "#b56576",
-    dot3: "#e56b6f",
+    icon: BsBookFill,
+    label: "Study",
+    emoji: "📖",
+    grad: "linear-gradient(135deg, #355070 0%, #e56b6f 100%)",
+    accent: "#e56b6f",
+    text: "#f5e6d3",
   },
 };
+
+const SPRING = { type: "spring", stiffness: 300, damping: 26 };
 
 function ThemeSwitcher({ compact = false }) {
   const { theme: currentTheme, themes, changeTheme } = useTheme();
 
   return (
-    <div
-      className="glass p-4"
-      style={{ borderRadius: "var(--radius-primary)" }}
-    >
-      {/* Header */}
+    <div style={{ width: "100%" }}>
       {!compact && (
-        <div className="mb-3">
-          <h3
-            className="text-sm font-semibold uppercase tracking-wider"
-            style={{ color: "var(--color-text-secondary)" }}
-          >
-            Theme
-          </h3>
-          <p
-            className="text-xs mt-0.5"
-            style={{ color: "var(--color-text-secondary)", opacity: 0.7 }}
-          >
-            Choose your vibe
-          </p>
-        </div>
+        <p
+          style={{
+            fontSize: "0.7rem",
+            fontWeight: 600,
+            textTransform: "uppercase",
+            letterSpacing: "0.13em",
+            color: "var(--color-text-secondary)",
+            marginBottom: 10,
+            opacity: 0.7,
+          }}
+        >
+          Theme
+        </p>
       )}
 
-      {/* Theme Grid */}
+      {/* ── Theme Pills ── */}
       <div
-        className={
-          compact ? "flex flex-wrap gap-2" : "grid grid-cols-2 gap-2.5"
-        }
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 6,
+        }}
       >
         {themes.map((themeItem, index) => {
-          const Icon = THEME_ICONS[themeItem.id];
-          const preview = THEME_PREVIEWS[themeItem.id];
+          const cfg = THEMES[themeItem.id];
+          if (!cfg) return null;
+          const Icon = cfg.icon;
           const isActive = currentTheme === themeItem.id;
-          const isLastOdd =
-            index === themes.length - 1 && themes.length % 2 === 1;
 
           return (
             <motion.button
               key={themeItem.id}
-              initial={{ opacity: 0, scale: 0.85 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{
-                delay: index * 0.06,
-                type: "spring",
-                stiffness: 250,
-                damping: 18,
-              }}
-              whileHover={{ scale: 1.06, y: -2 }}
-              whileTap={{ scale: 0.94 }}
               onClick={() => changeTheme(themeItem.id)}
-              className={`relative overflow-hidden cursor-pointer border-none outline-none ${
-                !compact && isLastOdd ? "col-span-2" : ""
-              }`}
+              initial={{ opacity: 0, x: -12 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: index * 0.05, ...SPRING }}
+              whileHover={{ x: 4, transition: SPRING }}
+              whileTap={{ scale: 0.96, transition: { duration: 0.1 } }}
               style={{
-                padding: compact ? "0.5rem" : "0.75rem",
-                borderRadius: "var(--radius-primary)",
-                backgroundColor: isActive
-                  ? "var(--color-primary)"
-                  : "var(--color-glass)",
-                border: isActive
-                  ? "2px solid var(--color-primary)"
-                  : "1px solid var(--color-border)",
-                boxShadow: isActive ? "0 0 24px var(--color-glow)" : "none",
-                transition:
-                  "all var(--transition-speed) var(--animation-style)",
+                position: "relative",
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "9px 12px",
+                borderRadius: 12,
+                border: "none",
+                cursor: "pointer",
+                overflow: "hidden",
+                outline: "none",
+                background: isActive ? cfg.grad : "var(--color-glass)",
+                boxShadow: isActive
+                  ? `0 4px 20px ${cfg.accent}55`
+                  : "none",
+                transition: "box-shadow 0.25s, background 0.25s",
               }}
             >
-              {/* Color Preview Dots */}
-              {!compact && (
-                <div className="flex items-center gap-1 mb-2 justify-center">
-                  {[preview.dot1, preview.dot2, preview.dot3].map(
-                    (color, i) => (
-                      <motion.span
-                        key={i}
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={{ delay: 0.1 + index * 0.06 + i * 0.05 }}
-                        className="inline-block w-3 h-3 rounded-full"
-                        style={{
-                          backgroundColor: color,
-                          border: "1px solid rgba(255,255,255,0.2)",
-                          boxShadow: isActive ? `0 0 6px ${color}` : "none",
-                        }}
-                      />
-                    ),
-                  )}
-                </div>
-              )}
-
-              {/* Icon + Label */}
-              <div className="flex flex-col items-center gap-1">
-                {Icon && (
-                  <Icon
-                    className="text-lg"
+              {/* Active shimmer bar on left edge */}
+              <AnimatePresence>
+                {isActive && (
+                  <motion.div
+                    key="bar"
+                    initial={{ scaleY: 0 }}
+                    animate={{ scaleY: 1 }}
+                    exit={{ scaleY: 0 }}
+                    transition={SPRING}
                     style={{
-                      color: isActive ? "var(--color-bg)" : "var(--color-text)",
-                      transition: "color 0.2s",
+                      position: "absolute",
+                      left: 0,
+                      top: "20%",
+                      bottom: "20%",
+                      width: 3,
+                      borderRadius: 4,
+                      background: isActive ? cfg.text : "var(--color-primary)",
+                      transformOrigin: "center",
                     }}
                   />
                 )}
-                {!compact && (
-                  <>
-                    <span
-                      className="text-xs font-semibold leading-tight"
-                      style={{
-                        color: isActive
-                          ? "var(--color-bg)"
-                          : "var(--color-text)",
-                        transition: "color 0.2s",
-                      }}
-                    >
-                      {themeItem.name}
-                    </span>
-                    <span
-                      className="text-[9px] leading-tight opacity-60"
-                      style={{
-                        color: isActive
-                          ? "var(--color-bg)"
-                          : "var(--color-text-secondary)",
-                      }}
-                    >
-                      {themeItem.emoji}
-                    </span>
-                  </>
-                )}
-              </div>
+              </AnimatePresence>
 
-              {/* Active Ring Pulse */}
-              {isActive && (
-                <motion.div
-                  layoutId="theme-active-ring"
-                  className="absolute inset-0 pointer-events-none"
+              {/* Icon bubble */}
+              <motion.div
+                layout
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 10,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                  background: isActive
+                    ? `${cfg.text}22`
+                    : "var(--color-border)",
+                  transition: "background 0.25s",
+                }}
+              >
+                <Icon
                   style={{
-                    borderRadius: "var(--radius-primary)",
-                    border: "2px solid var(--color-accent)",
-                    opacity: 0.5,
+                    fontSize: "0.95rem",
+                    color: isActive ? cfg.text : "var(--color-text-secondary)",
+                    transition: "color 0.25s",
                   }}
-                  transition={{ type: "spring", stiffness: 300, damping: 25 }}
                 />
+              </motion.div>
+
+              {/* Label + emoji */}
+              {!compact && (
+                <div style={{ flex: 1, textAlign: "left", minWidth: 0 }}>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: "0.82rem",
+                      fontWeight: 600,
+                      color: isActive ? cfg.text : "var(--color-text)",
+                      transition: "color 0.25s",
+                      lineHeight: 1,
+                    }}
+                  >
+                    {cfg.label}
+                  </p>
+                  <p
+                    style={{
+                      margin: "3px 0 0",
+                      fontSize: "0.68rem",
+                      color: isActive ? cfg.text : "var(--color-text-secondary)",
+                      opacity: isActive ? 0.75 : 0.55,
+                      transition: "color 0.25s, opacity 0.25s",
+                    }}
+                  >
+                    {cfg.emoji} {themeItem.name}
+                  </p>
+                </div>
               )}
+
+              {/* Active checkmark */}
+              <AnimatePresence>
+                {isActive && (
+                  <motion.div
+                    key="check"
+                    initial={{ scale: 0, rotate: -30 }}
+                    animate={{ scale: 1, rotate: 0 }}
+                    exit={{ scale: 0 }}
+                    transition={SPRING}
+                    style={{
+                      width: 18,
+                      height: 18,
+                      borderRadius: "50%",
+                      background: `${cfg.text}33`,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                      fontSize: 10,
+                      color: cfg.text,
+                    }}
+                  >
+                    ✓
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.button>
           );
         })}
       </div>
-
-      {/* Current Theme Label */}
-      {!compact && (
-        <motion.div
-          key={currentTheme}
-          initial={{ opacity: 0, y: 5 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          className="mt-3 text-center"
-        >
-          <span
-            className="text-[10px] uppercase tracking-widest font-medium"
-            style={{ color: "var(--color-text-secondary)" }}
-          >
-            Active:{" "}
-            <span style={{ color: "var(--color-primary)" }}>
-              {themes.find((t) => t.id === currentTheme)?.emoji}{" "}
-              {themes.find((t) => t.id === currentTheme)?.name}
-            </span>
-          </span>
-        </motion.div>
-      )}
     </div>
   );
 }
