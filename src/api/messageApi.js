@@ -9,13 +9,26 @@ export const messageApi = {
   /**
    * Send a new direct message.
    *
+   * Accepts either a plaintext string (legacy) or an encrypted payload
+   * object whose fields the server stores opaquely.
+   *
    * @param {string} from - Sender's user ID (must match authenticated user)
-   * @param {string} to - Recipient's user ID
-   * @param {string} message - Message content (1–2000 chars)
+   * @param {string} to   - Recipient's user ID
+   * @param {string|{
+   *   encrypted: true,
+   *   ciphertextForRecipient: string,
+   *   ciphertextForSender: string,
+   *   nonce: string,
+   *   senderPublicKey: string,
+   * }} payload - plaintext message, or an encrypted-payload object
    * @returns {Promise<object>} The saved message data
    */
-  sendMessage: async (from, to, message) => {
-    const { data } = await api.post("/messages", { from, to, message });
+  sendMessage: async (from, to, payload) => {
+    const body =
+      typeof payload === "string"
+        ? { from, to, message: payload }
+        : { from, to, ...payload };
+    const { data } = await api.post("/messages", body);
     return data.data;
   },
 
@@ -76,6 +89,18 @@ export const messageApi = {
     const { data } = await api.patch(`/messages/${messageId}/status`, {
       status,
     });
+    return data.data;
+  },
+
+  /**
+   * Fetch a user's E2EE public key + keyVersion. Used before encrypting
+   * a message to that peer.
+   *
+   * @param {string} userId
+   * @returns {Promise<{ userId: string, publicKey: string, keyVersion: number }>}
+   */
+  getPublicKey: async (userId) => {
+    const { data } = await api.get(`/users/${userId}/public-key`);
     return data.data;
   },
 };

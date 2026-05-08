@@ -6,15 +6,83 @@ import Message from "./Message";
 import { messageApi } from "../api/messageApi";
 import { socketService } from "../services/socketService";
 import { SOCKET_EVENTS, TYPING_CONFIG } from "../constants/socketEvents";
+import { useAuthStore } from "../store/authStore";
+import * as crypto from "../services/cryptoService";
+
+const LOCKED_PLACEHOLDER = "[unable to decrypt]";
+
+/**
+ * Decrypt an encrypted message row from the conversation history.
+ * Returns the plaintext, or LOCKED_PLACEHOLDER if decryption fails.
+ *
+ * For self-sent encrypted messages we use the `ciphertextForSender`
+ * copy with our own publicKey as the peer key (since crypto_box was
+ * called as box(plaintext, nonce, senderPubKey, senderPrivKey)).
+ *
+ * For received encrypted messages we use `ciphertextForRecipient` and
+ * the sender's public key.
+ */
+function decryptHistoryRow(row, { myPrivateKey, myPublicKey, peerPublicKey }) {
+  if (!row.encrypted) return row.message;
+  if (!myPrivateKey) return LOCKED_PLACEHOLDER;
+
+  const isSelf = row.fromSelf;
+  const ciphertext = isSelf ? row.ciphertextForSender : row.ciphertextForRecipient;
+  const peerPub = isSelf
+    ? row.senderPublicKey || myPublicKey
+    : row.senderPublicKey || peerPublicKey;
+
+  if (!ciphertext || !row.nonce || !peerPub) return LOCKED_PLACEHOLDER;
+
+  try {
+    return crypto.decryptMessage({
+      ciphertext,
+      nonce: row.nonce,
+      peerPublicKey: peerPub,
+      myPrivateKey,
+    });
+  } catch {
+    return LOCKED_PLACEHOLDER;
+  }
+}
 
 const ChatContainer = ({ currChat, currUser }) => {
   const scrollRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+  const peerPublicKeyRef = useRef(null);
 
   const [messages, setMessages] = useState([]);
   const [arrivalMessage, setArrivalMessage] = useState(null);
   const [isTyping, setIsTyping] = useState(false);
   const [typingUsername, setTypingUsername] = useState("");
+
+  const privateKeyB64 = useAuthStore((s) => s.privateKeyB64);
+  const myPublicKey = useAuthStore((s) => s.user?.publicKey);
+
+  // ─────────────────────────────────────────────
+  // Fetch peer public key whenever the conversation changes.
+  // Cached on a ref so subsequent sends don't re-fetch.
+  // ─────────────────────────────────────────────
+  useEffect(() => {
+    peerPublicKeyRef.current = null;
+
+    if (!currChat?._id) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const { publicKey } = await messageApi.getPublicKey(currChat._id);
+        if (!cancelled) peerPublicKeyRef.current = publicKey || null;
+      } catch {
+        // Peer is legacy or doesn't have a key — sends fall back to plaintext.
+        if (!cancelled) peerPublicKeyRef.current = null;
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currChat?._id]);
 
   // ─────────────────────────────────────────────
   // Fetch conversation
@@ -23,12 +91,23 @@ const ChatContainer = ({ currChat, currUser }) => {
     if (!currChat || !currUser) return;
 
     try {
+      await crypto.ready();
+
       const { messages: fetched } = await messageApi.getConversation(
         currUser._id,
         currChat._id
       );
 
-      setMessages(fetched || []);
+      const decrypted = (fetched || []).map((row) => ({
+        ...row,
+        message: decryptHistoryRow(row, {
+          myPrivateKey: privateKeyB64,
+          myPublicKey,
+          peerPublicKey: peerPublicKeyRef.current,
+        }),
+      }));
+
+      setMessages(decrypted);
 
       messageApi.markAsRead(currChat._id, currUser._id).catch(() => { });
       socketService.emit(SOCKET_EVENTS.MESSAGE_READ, {
@@ -38,14 +117,14 @@ const ChatContainer = ({ currChat, currUser }) => {
     } catch (err) {
       console.error("Failed to fetch conversation:", err);
     }
-  }, [currChat, currUser]);
+  }, [currChat, currUser, privateKeyB64, myPublicKey]);
 
   useEffect(() => {
     if (currChat) getChat();
   }, [currChat, getChat]);
 
   // ─────────────────────────────────────────────
-  // Send Message
+  // Send Message — encrypt if both peers have keys, else plaintext fallback.
   // ─────────────────────────────────────────────
   const handleSendMes = async (msg) => {
     if (!currUser || !currChat) return;
@@ -60,12 +139,39 @@ const ChatContainer = ({ currChat, currUser }) => {
     setMessages((prev) => [...prev, optimisticMsg]);
 
     try {
-      socketService.emit(SOCKET_EVENTS.MESSAGE_SEND, {
-        to: currChat._id,
-        message: msg,
-      });
+      await crypto.ready();
+      const peerPub = peerPublicKeyRef.current;
+      const canEncrypt = !!(peerPub && privateKeyB64 && myPublicKey);
 
-      await messageApi.sendMessage(currUser._id, currChat._id, msg);
+      if (canEncrypt) {
+        const enc = crypto.encryptMessage(
+          msg,
+          peerPub,
+          myPublicKey,
+          privateKeyB64
+        );
+        const payload = {
+          encrypted: true,
+          ciphertextForRecipient: enc.ciphertextForRecipient,
+          ciphertextForSender: enc.ciphertextForSender,
+          nonce: enc.nonce,
+          senderPublicKey: enc.senderPublicKey,
+        };
+
+        socketService.emit(SOCKET_EVENTS.MESSAGE_SEND, {
+          to: currChat._id,
+          ...payload,
+        });
+
+        await messageApi.sendMessage(currUser._id, currChat._id, payload);
+      } else {
+        socketService.emit(SOCKET_EVENTS.MESSAGE_SEND, {
+          to: currChat._id,
+          message: msg,
+        });
+
+        await messageApi.sendMessage(currUser._id, currChat._id, msg);
+      }
 
       socketService.emit(SOCKET_EVENTS.TYPING_STOP, {
         to: currChat._id,
@@ -88,10 +194,30 @@ const ChatContainer = ({ currChat, currUser }) => {
           clearTimeout(typingTimeoutRef.current);
         }
 
+        let plaintext;
+        if (data.encrypted) {
+          if (!privateKeyB64 || !data.senderPublicKey || !data.nonce || !data.ciphertextForRecipient) {
+            plaintext = LOCKED_PLACEHOLDER;
+          } else {
+            try {
+              plaintext = crypto.decryptMessage({
+                ciphertext: data.ciphertextForRecipient,
+                nonce: data.nonce,
+                peerPublicKey: data.senderPublicKey,
+                myPrivateKey: privateKeyB64,
+              });
+            } catch {
+              plaintext = LOCKED_PLACEHOLDER;
+            }
+          }
+        } else {
+          plaintext = data.message;
+        }
+
         setArrivalMessage({
           _id: data._id || Date.now().toString(),
           fromSelf: false,
-          message: data.message,
+          message: plaintext,
           createdAt: data.createdAt,
         });
 
@@ -108,7 +234,7 @@ const ChatContainer = ({ currChat, currUser }) => {
     );
 
     return () => unsub();
-  }, [currChat, currUser]);
+  }, [currChat, currUser, privateKeyB64]);
 
   // Append arrival message (do NOT replace array)
   useEffect(() => {

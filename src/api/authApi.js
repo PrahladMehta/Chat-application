@@ -99,4 +99,22 @@ export const authApi = {
     const { data } = await api.get("/auth/sessions");
     return data.data;
   },
+
+  /**
+   * Initialize E2EE keys for a legacy account that registered before
+   * E2EE was rolled out. Idempotent on the server (only succeeds when
+   * the user's publicKey is null).
+   *
+   * @param {{
+   *   publicKey: string,
+   *   encryptedPrivateKey: string,
+   *   privKeySalt: string,
+   *   privKeyNonce: string,
+   * }} payload — all base64
+   * @returns {Promise<{ user: object }>}
+   */
+  initKeys: async (payload) => {
+    const { data } = await api.post("/auth/keys/init", payload);
+    return data.data;
+  },
 };

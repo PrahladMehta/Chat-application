@@ -52,6 +52,7 @@ const Login = () => {
       }
     } catch (err) {
       // Extract error message from the API response
+      console.log(err);
       const message =
         err?.response?.data?.error?.message ||
         err?.response?.data?.message ||
